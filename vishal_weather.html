@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vishal Weather</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface": "#0a0e21",
+          "surface-container": "#121733",
+          "surface-container-high": "#1c2242",
+          "surface-container-highest": "#24294d",
+          "on-surface": "#e2e2e2",
+          "on-surface-variant": "#a3b3c9",
+          "primary": "#9accf8",
+          "secondary": "#2dd4bf",
+          "outline-variant": "#46464d",
+          "background": "#0a0e21",
+          "on-background": "#e2e2e2",
+        },
+        borderRadius: {
+          "DEFAULT": "0.5rem",
+          "lg": "0.5rem",
+          "xl": "1rem",
+          "full": "9999px"
+        },
+        fontFamily: { "inter": ["Inter"] },
+      },
+    },
+  }
+</script>
+<style>
+  * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+  body { background-color: #0a0e21; color: #e2e2e2; overflow-x: hidden; -webkit-font-smoothing: antialiased; margin: 0; padding: 0; }
+  .glass-card { background: rgba(18,23,51,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3); }
+  .glass-header { background: rgba(10,14,33,0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .aqi-gradient { background: linear-gradient(90deg, #2dd4bf 0%, #facc15 50%, #f87171 100%); }
+  .hero-bg {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px; height: 100vh; z-index: -1;
+    object-fit: cover; filter: brightness(0.6) contrast(1.1);
+  }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(45,212,191,0.2); border-top-color: #2dd4bf; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .active-nav { background: rgba(45,212,191,0.15); color: #2dd4bf; border-radius: 9999px; }
+  .search-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(10,14,33,0.92); backdrop-filter: blur(20px); padding: 24px 16px; max-width: 480px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; }
+  .search-overlay.open { display: flex; flex-direction: column; gap: 16px; }
+  .search-input { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; padding: 12px 20px 12px 44px; color: #e2e2e2; font-size: 16px; width: 100%; outline: none; }
+  .search-input::placeholder { color: rgba(255,255,255,0.35); }
+  .search-input:focus { border-color: rgba(45,212,191,0.5); }
+  .search-result-item { padding: 12px 16px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; color: #e2e2e2; font-size: 15px; }
+  .search-result-item:hover { background: rgba(255,255,255,0.07); }
+  .temp-display { font-size: 96px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; text-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+  .fade-in { animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+  .card-press { transition: transform 0.2s, background 0.2s; cursor: pointer; }
+  .card-press:active { transform: scale(0.97); background: rgba(18,23,51,0.65) !important; }
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<img alt="Night Sky" class="hero-bg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUhuHDwoBKCCKuapLxD5QrOMb54BY_y0pB6Ke5ZRTKqThL_GLmkOUSLzl85lU1ke4X6Oelk2spouPRgNlCwgx7l23q3htVG7WouYdZ1ymNJ9j4847O1ddIjJfNiQybDevXitoM9Rso6l8iEm6cJAvt7R_sw1TEdcMJZjFuAFQXotTnSIF3RvtkMeWHIUqNA0HsoaWbAnwjA7RQaSgZXYSvMcCPfws1v1BUP5euHg5vOffB9mWqqegOwt1_7J4Q6hbJTB458yQjE6_3"/>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <div style="position:relative; display:flex; align-items:center;">
+    <span class="material-symbols-outlined" style="position:absolute; left:14px; color:rgba(255,255,255,0.4); font-size:20px;">search</span>
+    <input class="search-input" id="searchInput" placeholder="Search city..." type="text" autocomplete="off"/>
+    <button onclick="closeSearch()" style="margin-left:12px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); border-radius:9999px; padding:8px 16px; color:#e2e2e2; font-size:14px; cursor:pointer; white-space:nowrap;">Cancel</button>
+  </div>
+  <div id="searchResults" style="overflow-y:auto; flex:1;"></div>
+</div>
+
+<!-- Header -->
+<header class="w-full top-0 sticky z-50 glass-header">
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; max-width:480px; margin:0 auto;">
+    <h1 style="font-size:22px; font-weight:600; color:#e2e2e2; margin:0;">Vishal Weather</h1>
+    <div style="display:flex; gap:16px;">
+      <button onclick="openSearch()" style="background:none; border:none; cursor:pointer; color:#a3b3c9; transition:color 0.2s;" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#a3b3c9'">
+        <span class="material-symbols-outlined">search</span>
+      </button>
+      <button onclick="locateMe()" style="background:none; border:none; cursor:pointer; color:#a3b3c9; transition:color 0.2s;" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#a3b3c9'" title="Use my location">
+        <span class="material-symbols-outlined">my_location</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main style="max-width:480px; margin:0 auto; padding:60px 24px 120px; display:flex; flex-direction:column; gap:36px; position:relative;" id="mainContent">
+
+  <!-- Loading State -->
+  <div id="loadingState" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:16px;">
+    <div class="spinner"></div>
+    <p style="color:#a3b3c9; font-size:14px;">Fetching weather data...</p>
+  </div>
+
+  <!-- Error State -->
+  <div id="errorState" style="display:none; text-align:center; padding:60px 0;">
+    <span class="material-symbols-outlined" style="font-size:48px; color:#a3b3c9;">cloud_off</span>
+    <p style="color:#e2e2e2; font-size:18px; font-weight:600; margin:12px 0 8px;">Could not load weather</p>
+    <p style="color:#a3b3c9; font-size:14px;" id="errorMsg">Please try again.</p>
+    <button onclick="retryLoad()" style="margin-top:20px; padding:10px 24px; background:rgba(45,212,191,0.15); border:1px solid rgba(45,212,191,0.3); border-radius:9999px; color:#2dd4bf; font-size:14px; cursor:pointer;">Try Again</button>
+  </div>
+
+  <!-- Weather Content (hidden until data loads) -->
+  <div id="weatherContent" style="display:none; flex-direction:column; gap:36px;" class="fade-in">
+
+    <!-- Hero -->
+    <section style="text-align:center; padding:24px 0 8px; display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <p style="font-size:13px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9; margin:0 0 4px;" id="locationName">—</p>
+        <div class="temp-display" id="currentTemp">—</div>
+        <p style="font-size:18px; font-weight:600; color:#2dd4bf; margin:4px 0 0;" id="weatherDesc">—</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; align-items:center;">
+        <p style="font-size:12px; font-weight:500; letter-spacing:0.05em; text-transform:uppercase; color:#a3b3c9; margin:0;" id="highLow">—</p>
+        <div class="glass-card" style="display:inline-flex; align-items:center; gap:8px; padding:8px 16px; border-radius:9999px;" id="aqiBadge">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf; font-variation-settings:'FILL' 1;">airwave</span>
+          <span style="font-size:12px; font-weight:500; letter-spacing:0.05em;" id="aqiText">AQI: — </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- AQI Card -->
+    <section class="glass-card card-press" style="border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#2dd4bf;">flare</span>
+          <span style="font-size:12px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Air Quality Index</span>
+        </div>
+        <span style="font-size:12px; font-weight:600; color:#2dd4bf;" id="aqiLevel">—</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; align-items:flex-end; gap:8px;">
+          <span style="font-size:36px; font-weight:700;" id="aqiValue">—</span>
+          <span style="font-size:18px; font-weight:600; padding-bottom:4px;" id="aqiCategory">—</span>
+        </div>
+        <div style="position:relative; height:8px; width:100%; border-radius:9999px; overflow:hidden;" class="aqi-gradient">
+          <div style="position:absolute; top:0; bottom:0; width:6px; background:white; border:1px solid rgba(0,0,0,0.2); box-shadow:0 0 6px rgba(0,0,0,0.4); border-radius:2px; z-index:10; transition:left 0.5s ease;" id="aqiMarker"></div>
+        </div>
+        <p style="font-size:13px; line-height:1.6; color:#a3b3c9; margin:0;" id="aqiDesc">—</p>
+      </div>
+    </section>
+
+    <!-- Hourly Forecast -->
+    <section style="display:flex; flex-direction:column; gap:14px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="material-symbols-outlined" style="color:#2dd4bf;">schedule</span>
+        <span style="font-size:12px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Hourly Forecast</span>
+      </div>
+      <div id="hourlyContainer" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;" class="hide-scrollbar"></div>
+    </section>
+
+    <!-- 7-Day Forecast -->
+    <section class="glass-card" style="border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="material-symbols-outlined" style="color:#2dd4bf;">calendar_month</span>
+        <span style="font-size:12px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">7-Day Forecast</span>
+      </div>
+      <div id="dailyContainer" style="display:flex; flex-direction:column; gap:20px;"></div>
+    </section>
+
+    <!-- Metrics Grid -->
+    <section style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <!-- UV Index -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf;">wb_sunny</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">UV Index</span>
+        </div>
+        <div>
+          <p style="font-size:28px; font-weight:700; margin:0 0 2px;" id="uvValue">—</p>
+          <p style="font-size:14px; font-weight:600; color:#e2e2e2; margin:0;" id="uvLevel">—</p>
+        </div>
+        <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:9999px; position:relative;">
+          <div style="position:absolute; left:0; height:100%; background:#2dd4bf; border-radius:9999px; transition:width 0.5s ease;" id="uvBar"></div>
+        </div>
+      </div>
+      <!-- Feels Like -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf;">thermostat</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Feels Like</span>
+        </div>
+        <p style="font-size:32px; font-weight:700; margin:0;" id="feelsLike">—</p>
+        <p style="font-size:13px; color:#a3b3c9; margin:0;" id="feelsLikeDesc">—</p>
+      </div>
+      <!-- Humidity -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf;">humidity_mid</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Humidity</span>
+        </div>
+        <p style="font-size:32px; font-weight:700; margin:0;" id="humidity">—</p>
+        <p style="font-size:13px; color:#a3b3c9; margin:0;" id="dewPoint">—</p>
+      </div>
+      <!-- Wind -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf;">air</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Wind</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <p style="font-size:32px; font-weight:700; margin:0;" id="windSpeed">—</p>
+          <span style="font-size:12px; color:#a3b3c9;">km/h</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="color:#2dd4bf; font-size:18px;" id="windArrow">navigation</span>
+          <span style="font-size:13px; color:#a3b3c9; font-weight:500;" id="windDir">—</span>
+        </div>
+      </div>
+      <!-- Sunrise/Sunset -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#2dd4bf;">wb_twilight</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Sunrise</span>
+        </div>
+        <p style="font-size:26px; font-weight:700; margin:0;" id="sunrise">—</p>
+        <p style="font-size:13px; color:#a3b3c9; margin:0;">Local time</p>
+      </div>
+      <!-- Sunset -->
+      <div class="glass-card card-press" style="border-radius:16px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:130px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px; color:#9accf8;">nightlight</span>
+          <span style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:#a3b3c9;">Sunset</span>
+        </div>
+        <p style="font-size:26px; font-weight:700; margin:0;" id="sunset">—</p>
+        <p style="font-size:13px; color:#a3b3c9; margin:0;">Local time</p>
+      </div>
+    </section>
+
+    <!-- Last Updated -->
+    <p style="text-align:center; font-size:12px; color:rgba(163,179,201,0.5); letter-spacing:0.05em;" id="lastUpdated"></p>
+
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav style="position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; z-index:50; backdrop-filter:blur(24px); background:rgba(10,14,33,0.5); border-top:1px solid rgba(255,255,255,0.08); box-shadow:0 -8px 30px rgba(0,0,0,0.4);">
+  <div style="display:flex; justify-content:space-around; padding:12px 24px 24px;">
+    <button class="active-nav" style="padding:12px; border:none; cursor:pointer; display:flex; flex-direction:column; align-items:center; transition:all 0.2s;">
+      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">dashboard</span>
+    </button>
+    <button style="background:none; border:none; cursor:pointer; padding:12px; color:#a3b3c9; display:flex; flex-direction:column; align-items:center; transition:all 0.2s;" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#a3b3c9'">
+      <span class="material-symbols-outlined">explore</span>
+    </button>
+    <button onclick="locateMe()" style="background:none; border:none; cursor:pointer; padding:12px; color:#a3b3c9; display:flex; flex-direction:column; align-items:center; transition:all 0.2s;" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#a3b3c9'">
+      <span class="material-symbols-outlined">location_on</span>
+    </button>
+    <button style="background:none; border:none; cursor:pointer; padding:12px; color:#a3b3c9; display:flex; flex-direction:column; align-items:center; transition:all 0.2s;" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#a3b3c9'">
+      <span class="material-symbols-outlined">person</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+const WMO_CODES = {
+  0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Foggy',48:'Icy fog',
+  51:'Light drizzle',53:'Moderate drizzle',55:'Dense drizzle',
+  61:'Slight rain',63:'Moderate rain',65:'Heavy rain',
+  71:'Slight snow',73:'Moderate snow',75:'Heavy snow',77:'Snow grains',
+  80:'Rain showers',81:'Moderate showers',82:'Violent showers',
+  85:'Snow showers',86:'Heavy snow showers',
+  95:'Thunderstorm',96:'Thunderstorm + hail',99:'Thunderstorm + heavy hail'
+};
+const WMO_ICONS = {
+  0:'wb_sunny',1:'wb_sunny',2:'partly_cloudy_day',3:'cloud',
+  45:'foggy',48:'foggy',
+  51:'grain',53:'grain',55:'grain',
+  61:'rainy',63:'rainy',65:'rainy',
+  71:'ac_unit',73:'ac_unit',75:'ac_unit',77:'ac_unit',
+  80:'rainy',81:'rainy',82:'rainy',
+  85:'ac_unit',86:'ac_unit',
+  95:'thunderstorm',96:'thunderstorm',99:'thunderstorm'
+};
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+let currentLat = null, currentLon = null, currentCity = 'Your Location';
+
+function windDegToDir(deg) {
+  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+  return dirs[Math.round(deg/45) % 8];
+}
+
+function aqiCategory(aqi) {
+  if (aqi <= 50) return ['Good','#2dd4bf','Air quality is satisfactory and poses little to no risk.'];
+  if (aqi <= 100) return ['Moderate','#facc15','Acceptable; some pollutants may be of concern for sensitive individuals.'];
+  if (aqi <= 150) return ['Unhealthy for Sensitive','#f97316','Members of sensitive groups may experience health effects.'];
+  if (aqi <= 200) return ['Unhealthy','#f87171','Everyone may begin to experience health effects.'];
+  if (aqi <= 300) return ['Very Unhealthy','#c084fc','Health alert — everyone may experience serious effects.'];
+  return ['Hazardous','#fb7185','Emergency conditions — entire population likely affected.'];
+}
+
+function uvLevel(uv) {
+  if (uv <= 2) return 'Low';
+  if (uv <= 5) return 'Moderate';
+  if (uv <= 7) return 'High';
+  if (uv <= 10) return 'Very High';
+  return 'Extreme';
+}
+
+function formatTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+}
+
+async function fetchWeather(lat, lon, cityName) {
+  currentLat = lat; currentLon = lon; currentCity = cityName;
+  showLoading();
+
+  try {
+    const [weatherRes, aqiRes] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,uv_index&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto&forecast_days=7`),
+      fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,us_aqi&timezone=auto`)
+    ]);
+
+    if (!weatherRes.ok) throw new Error('Weather API error');
+    const weather = await weatherRes.json();
+    const aqi = aqiRes.ok ? await aqiRes.json() : null;
+
+    renderWeather(weather, aqi, cityName);
+  } catch(e) {
+    showError('Unable to fetch weather data. Check your connection.');
+  }
+}
+
+function renderWeather(w, aqiData, cityName) {
+  const c = w.current;
+  const d = w.daily;
+  const h = w.hourly;
+
+  // Hero
+  document.getElementById('locationName').textContent = cityName;
+  document.getElementById('currentTemp').textContent = Math.round(c.temperature_2m) + '°';
+  document.getElementById('weatherDesc').textContent = WMO_CODES[c.weather_code] || 'Unknown';
+  document.getElementById('highLow').textContent = `H: ${Math.round(d.temperature_2m_max[0])}°  L: ${Math.round(d.temperature_2m_min[0])}°`;
+
+  // AQI
+  const aqiVal = aqiData?.current?.us_aqi ?? aqiData?.current?.european_aqi ?? null;
+  if (aqiVal !== null) {
+    const [cat, col, desc] = aqiCategory(aqiVal);
+    document.getElementById('aqiText').textContent = `AQI: ${aqiVal} – ${cat}`;
+    document.getElementById('aqiValue').textContent = aqiVal;
+    document.getElementById('aqiCategory').textContent = cat;
+    document.getElementById('aqiLevel').textContent = cat;
+    document.getElementById('aqiLevel').style.color = col;
+    document.getElementById('aqiDesc').textContent = desc;
+    const pct = Math.min(aqiVal / 500 * 100, 98);
+    document.getElementById('aqiMarker').style.left = `calc(${pct}% - 3px)`;
+  } else {
+    document.getElementById('aqiText').textContent = 'AQI: N/A';
+    document.getElementById('aqiValue').textContent = 'N/A';
+    document.getElementById('aqiCategory').textContent = '';
+    document.getElementById('aqiLevel').textContent = '';
+    document.getElementById('aqiDesc').textContent = 'Air quality data not available for this location.';
+  }
+
+  // Hourly (next 24h)
+  const now = new Date();
+  const hourlyContainer = document.getElementById('hourlyContainer');
+  hourlyContainer.innerHTML = '';
+  let count = 0;
+  for (let i = 0; i < h.time.length && count < 24; i++) {
+    const t = new Date(h.time[i]);
+    if (t < now - 3600000) continue;
+    const isNow = count === 0;
+    const label = isNow ? 'Now' : t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const icon = WMO_ICONS[h.weather_code[i]] || 'cloud';
+    const activeStyle = isNow ? 'border-color:rgba(45,212,191,0.4); box-shadow:0 0 15px rgba(45,212,191,0.2);' : '';
+    const labelColor = isNow ? '#2dd4bf' : '#a3b3c9';
+    const iconColor = isNow ? '#2dd4bf' : '#a3b3c9';
+    hourlyContainer.innerHTML += `
+      <div class="glass-card" style="flex-shrink:0; width:76px; border-radius:14px; padding:16px 0; display:flex; flex-direction:column; align-items:center; gap:10px; ${activeStyle}">
+        <span style="font-size:12px; font-weight:${isNow?'700':'500'}; color:${labelColor};">${label}</span>
+        <span class="material-symbols-outlined" style="font-size:28px; color:${iconColor}; font-variation-settings:'FILL' 1;">${icon}</span>
+        <span style="font-size:16px; font-weight:600;">${Math.round(h.temperature_2m[i])}°</span>
+      </div>`;
+    count++;
+  }
+
+  // 7-Day
+  const dailyContainer = document.getElementById('dailyContainer');
+  dailyContainer.innerHTML = '';
+  const temps = d.temperature_2m_max.map((v,i) => ({max:v, min:d.temperature_2m_min[i]}));
+  const absMax = Math.max(...temps.map(t=>t.max));
+  const absMin = Math.min(...temps.map(t=>t.min));
+  const range = absMax - absMin || 1;
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(d.time[i]);
+    const dayLabel = i === 0 ? 'Today' : DAYS[date.getDay()];
+    const icon = WMO_ICONS[d.weather_code[i]] || 'cloud';
+    const hi = Math.round(d.temperature_2m_max[i]);
+    const lo = Math.round(d.temperature_2m_min[i]);
+    const leftPct = ((temps[i].min - absMin) / range) * 60;
+    const rightPct = 100 - ((temps[i].max - absMin) / range) * 60 - leftPct;
+
+    dailyContainer.innerHTML += `
+      <div style="display:flex; align-items:center; justify-content:space-between; opacity:${i===0?1:0.85};">
+        <span style="width:48px; font-size:16px; font-weight:600;">${dayLabel}</span>
+        <span class="material-symbols-outlined" style="color:#2dd4bf; font-variation-settings:'FILL' 1;">${icon}</span>
+        <div style="display:flex; align-items:center; gap:10px; width:140px; justify-content:flex-end;">
+          <span style="font-size:12px; color:#a3b3c9; width:28px; text-align:right;">${lo}°</span>
+          <div style="flex:1; height:6px; background:rgba(255,255,255,0.1); border-radius:9999px; position:relative;">
+            <div style="position:absolute; left:${leftPct}%; right:${rightPct}%; height:100%; background:linear-gradient(90deg,#2dd4bf,#9accf8); border-radius:9999px;"></div>
+          </div>
+          <span style="font-size:16px; font-weight:600; width:32px; text-align:right;">${hi}°</span>
+        </div>
+      </div>`;
+  }
+
+  // Metrics
+  const uv = Math.round(c.uv_index ?? d.uv_index_max[0] ?? 0);
+  document.getElementById('uvValue').textContent = uv;
+  document.getElementById('uvLevel').textContent = uvLevel(uv);
+  document.getElementById('uvBar').style.width = Math.min(uv/11*100,100) + '%';
+
+  const feels = Math.round(c.apparent_temperature);
+  const diff = feels - Math.round(c.temperature_2m);
+  document.getElementById('feelsLike').textContent = feels + '°';
+  document.getElementById('feelsLikeDesc').textContent = diff > 2 ? 'Feels warmer than actual' : diff < -2 ? 'Feels cooler than actual' : 'Similar to actual temp';
+
+  document.getElementById('humidity').textContent = c.relative_humidity_2m + '%';
+  // Dew point approximation
+  const dewPt = Math.round(c.temperature_2m - (100 - c.relative_humidity_2m) / 5);
+  document.getElementById('dewPoint').textContent = `Dew point: ${dewPt}°`;
+
+  document.getElementById('windSpeed').textContent = Math.round(c.wind_speed_10m);
+  document.getElementById('windDir').textContent = windDegToDir(c.wind_direction_10m);
+  document.getElementById('windArrow').style.transform = `rotate(${c.wind_direction_10m}deg)`;
+
+  document.getElementById('sunrise').textContent = formatTime(d.sunrise[0]);
+  document.getElementById('sunset').textContent = formatTime(d.sunset[0]);
+
+  document.getElementById('lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+
+  showWeather();
+}
+
+function showLoading() {
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('errorState').style.display = 'none';
+  const wc = document.getElementById('weatherContent');
+  wc.style.display = 'none';
+}
+
+function showError(msg) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'block';
+  document.getElementById('errorMsg').textContent = msg;
+  const wc = document.getElementById('weatherContent');
+  wc.style.display = 'none';
+}
+
+function showWeather() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'none';
+  const wc = document.getElementById('weatherContent');
+  wc.style.display = 'flex';
+  wc.classList.remove('fade-in');
+  void wc.offsetWidth;
+  wc.classList.add('fade-in');
+}
+
+function retryLoad() {
+  if (currentLat && currentLon) fetchWeather(currentLat, currentLon, currentCity);
+  else locateMe();
+}
+
+function locateMe() {
+  if (!navigator.geolocation) {
+    showError('Geolocation not supported by your browser.');
+    return;
+  }
+  showLoading();
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    let cityName = 'Your Location';
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+      const data = await r.json();
+      cityName = data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'Your Location';
+    } catch(e) {}
+    fetchWeather(lat, lon, cityName);
+  }, (err) => {
+    // Default to Delhi if geolocation denied
+    fetchWeather(28.6139, 77.2090, 'New Delhi');
+  }, { timeout: 8000 });
+}
+
+// Search
+let searchTimeout = null;
+function openSearch() {
+  document.getElementById('searchOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('searchInput').focus(), 100);
+}
+function closeSearch() {
+  document.getElementById('searchOverlay').classList.remove('open');
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+}
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchTimeout = setTimeout(() => searchCity(q), 400);
+});
+async function searchCity(q) {
+  const res = document.getElementById('searchResults');
+  res.innerHTML = '<p style="color:#a3b3c9; font-size:14px; padding:8px 16px;">Searching...</p>';
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=en&format=json`);
+    const data = await r.json();
+    if (!data.results?.length) { res.innerHTML = '<p style="color:#a3b3c9; font-size:14px; padding:8px 16px;">No results found.</p>'; return; }
+    res.innerHTML = data.results.map(city => `
+      <div class="search-result-item" onclick="selectCity(${city.latitude},${city.longitude},'${(city.name+', '+(city.admin1||city.country||'')).replace(/'/g,"\\'")}')">
+        <span class="material-symbols-outlined" style="color:#2dd4bf; font-size:20px;">location_on</span>
+        <div>
+          <p style="margin:0; font-size:15px;">${city.name}</p>
+          <p style="margin:0; font-size:12px; color:#a3b3c9;">${[city.admin1, city.country].filter(Boolean).join(', ')}</p>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    res.innerHTML = '<p style="color:#a3b3c9; font-size:14px; padding:8px 16px;">Search failed. Try again.</p>';
+  }
+}
+function selectCity(lat, lon, name) {
+  closeSearch();
+  fetchWeather(lat, lon, name);
+}
+
+// Boot
+locateMe();
+</script>
+</body>
+</html>
